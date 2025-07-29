@@ -1,0 +1,5 @@
+pdf2text2chunks/venv/
+pdf2text2chunks/config.json
+pdf2text2chunks/config.sample.json
+pdf2text2chunks/src/__pycache__/
+pdf2text2chunks/pdf_to_rag_converter.egg-info/
