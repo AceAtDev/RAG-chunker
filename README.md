@@ -15,8 +15,8 @@ A clean, modular tool for converting PDFs to text and creating RAG-ready chunks 
 
 ### Quick Install
 ```bash
-git clone https://github.com/yourusername/pdf-to-rag-converter.git
-cd pdf-to-rag-converter
+git clone https://github.com/aAceAtDev/RARchunker.git
+cd RARchunker/pdf2text2chunks
 pip install -r requirements.txt
 ```
 
