@@ -3,3 +3,7 @@ pdf2text2chunks/config.json
 pdf2text2chunks/config.sample.json
 pdf2text2chunks/src/__pycache__/
 pdf2text2chunks/pdf_to_rag_converter.egg-info/
+
+pdf2text2chunks/pdfs/
+pdf2text2chunks/text/
+pdf2text2chunks/chunks/

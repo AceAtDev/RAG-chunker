@@ -23,7 +23,7 @@ def read_requirements():
 setup(
     name="ranchunker",
     version="1.0.0",
-    author="Mouh Elshoubky (AceAtDev)",
+    author="Elshoubky M (AceAtDev)",
     author_email="mohamedshoubky@gmail.com",
     description="A tool for converting PDFs to text and creating RAG-ready chunks",
     long_description=read_readme(),

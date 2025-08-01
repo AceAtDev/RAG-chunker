@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 PDF to RAG Converter
 A clean, modular tool for converting PDFs to text and creating RAG-ready chunks.
@@ -32,23 +31,27 @@ def setup_cli():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+Examples:
   # Convert PDFs to text
   python main.py convert --input pdfs/ --output text/
   
-  # Create chunks with both embeddings and BM25 (default)
+  # Create chunks using config.json credentials
+  python main.py chunk --input text/ --output chunks/
+  
+  # Create chunks with custom API key (overrides config.json)
   python main.py chunk --input text/ --output chunks/ --azure-key YOUR_KEY
   
   # Create chunks with embeddings only
-  python main.py chunk --input text/ --output chunks/ --azure-key YOUR_KEY --no-bm25
+  python main.py chunk --input text/ --output chunks/ --no-bm25
   
   # Create chunks with BM25 only (no embeddings)
   python main.py chunk --input text/ --output chunks/ --bm25-only
   
-  # Full pipeline with custom vector settings
-  python main.py pipeline --input pdfs/ --azure-key YOUR_KEY --embeddings-only
+  # Full pipeline using config.json credentials
+  python main.py pipeline --input pdfs/
   
-  # Translate Arabic text
-  python main.py translate --input text/ --translator azure --key YOUR_KEY
+  # Full pipeline with custom credentials
+  python main.py pipeline --input pdfs/ --azure-key YOUR_KEY --embeddings-only
         """
     )
     
@@ -70,11 +73,11 @@ Examples:
     chunk_parser = subparsers.add_parser("chunk", help="Create chunks with embeddings and/or BM25")
     chunk_parser.add_argument("--input", "-i", required=True, help="Input directory containing text files")
     chunk_parser.add_argument("--output", "-o", required=True, help="Output directory for chunk files")
-    chunk_parser.add_argument("--azure-key", help="Azure OpenAI API key (required for embeddings)")
-    chunk_parser.add_argument("--azure-endpoint", help="Azure OpenAI endpoint")
+    chunk_parser.add_argument("--azure-key", help="Azure OpenAI API key (optional, uses config.json if not provided)")
+    chunk_parser.add_argument("--azure-endpoint", help="Azure OpenAI endpoint (optional, uses config.json if not provided)")
     chunk_parser.add_argument("--chunk-size", type=int, default=512, help="Maximum chunk size in tokens")
     chunk_parser.add_argument("--chunk-overlap", type=int, default=50, help="Overlap between chunks")
-    
+
     # Vector generation options
     vector_group = chunk_parser.add_mutually_exclusive_group()
     vector_group.add_argument("--embeddings-only", action="store_true", 
@@ -101,11 +104,11 @@ Examples:
     pipeline_parser = subparsers.add_parser("pipeline", help="Run full PDF to chunks pipeline")
     pipeline_parser.add_argument("--input", "-i", required=True, help="Input directory containing PDFs")
     pipeline_parser.add_argument("--output", "-o", default="output", help="Base output directory")
-    pipeline_parser.add_argument("--azure-key", help="Azure OpenAI API key (required for embeddings)")
+    pipeline_parser.add_argument("--azure-key", help="Azure OpenAI API key (optional, uses config.json if not provided)")
     pipeline_parser.add_argument("--convert-method", choices=["standard", "ocr"], default="standard")
     pipeline_parser.add_argument("--translate", action="store_true", help="Include translation step")
     pipeline_parser.add_argument("--max-workers", type=int, default=4, help="Number of parallel workers")
-    
+
     # Vector options for pipeline
     pipeline_vector_group = pipeline_parser.add_mutually_exclusive_group()
     pipeline_vector_group.add_argument("--embeddings-only", action="store_true", 
@@ -147,7 +150,7 @@ def validate_vector_settings(enable_embeddings: bool, enable_bm25: bool, azure_k
         raise ValueError("At least one of embeddings or BM25 must be enabled")
     
     if enable_embeddings and not azure_key:
-        raise ValueError("Azure OpenAI API key is required when embeddings are enabled")
+        raise ValueError("Azure OpenAI API key is required when embeddings are enabled. Please provide --azure-key or set it in config.json")
 
 
 def convert_command(args):
@@ -200,8 +203,24 @@ def chunk_command(args):
     # Determine vector settings
     enable_embeddings, enable_bm25 = get_vector_settings(args, config)
     
+    # Get Azure credentials (prioritize command line, fallback to config)
+    azure_key = args.azure_key or config.azure.api_key
+    azure_endpoint = getattr(args, 'azure_endpoint', None) or config.azure.endpoint
+    
     # Validate settings
-    validate_vector_settings(enable_embeddings, enable_bm25, args.azure_key)
+    validate_vector_settings(enable_embeddings, enable_bm25, azure_key)
+    
+    # Log configuration source
+    if args.azure_key:
+        logger.info("Using Azure OpenAI API key from command line")
+    elif config.azure.api_key:
+        logger.info("Using Azure OpenAI API key from config.json")
+    
+    if azure_endpoint:
+        if getattr(args, 'azure_endpoint', None):
+            logger.info("Using Azure OpenAI endpoint from command line")
+        else:
+            logger.info("Using Azure OpenAI endpoint from config.json")
     
     # Log vector generation mode
     if enable_embeddings and enable_bm25:
@@ -217,8 +236,8 @@ def chunk_command(args):
     chunker = TextChunker(
         input_dir=args.input,
         output_dir=args.output,
-        azure_api_key=args.azure_key if enable_embeddings else None,
-        azure_endpoint=args.azure_endpoint,
+        azure_api_key=azure_key if enable_embeddings else None,
+        azure_endpoint=azure_endpoint,
         chunk_size=args.chunk_size,
         chunk_overlap=args.chunk_overlap,
         enable_embeddings=enable_embeddings,
@@ -280,8 +299,17 @@ def pipeline_command(args):
     # Determine vector settings
     enable_embeddings, enable_bm25 = get_vector_settings(args, config)
     
+    # Get Azure credentials (prioritize command line, fallback to config)
+    azure_key = args.azure_key or config.azure.api_key
+    
     # Validate settings
-    validate_vector_settings(enable_embeddings, enable_bm25, args.azure_key)
+    validate_vector_settings(enable_embeddings, enable_bm25, azure_key)
+    
+    # Log configuration source
+    if args.azure_key:
+        logger.info("Using Azure OpenAI API key from command line")
+    elif config.azure.api_key:
+        logger.info("Using Azure OpenAI API key from config.json")
     
     # Setup output directories
     base_output = Path(args.output)
@@ -342,8 +370,8 @@ def pipeline_command(args):
     chunk_args = argparse.Namespace(
         input=input_for_chunking,
         output=str(chunks_dir),
-        azure_key=args.azure_key if enable_embeddings else None,
-        azure_endpoint=None,
+        azure_key=azure_key if enable_embeddings else None,
+        azure_endpoint=config.azure.endpoint,
         chunk_size=512,
         chunk_overlap=50,
         embeddings_only=enable_embeddings and not enable_bm25,
