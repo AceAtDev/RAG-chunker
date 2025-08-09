@@ -2,6 +2,11 @@
 
 A clean, modular tool for converting PDFs to text and creating RAG-ready chunks with embeddings. Perfect for building knowledge bases from document collections.
 
+
+![preview gif](./public/preview.gif)
+
+
+
 ## 🚀 Features
 
 -   **PDF to Text Conversion**: Support for both standard and OCR-based extraction
